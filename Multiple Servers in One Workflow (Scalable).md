@@ -32,7 +32,7 @@ This guide explains how to configure a single n8n workflow to handle multiple se
 - Code:
   ```text
   {{ JSON.stringify({ entity_id: "sensor.server_" + $json.host.replace('.', '_') + "_updates", long_value: $json.updates }) }}
-- Create corresponding sensors in HA for each server.
+- Create corresponding sensors in HA for each server. (if outputting updates to a HA dashboard)
 
 ### Step 4: For Approval
 - In the dashboard, add buttons per server, calling separate webhooks (e.g., /approve-server1).
