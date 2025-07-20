@@ -1,0 +1,327 @@
+{
+  "name": "Server APT Update",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 60
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -976,
+        -672
+      ],
+      "id": "e165cbc6-e4af-4973-8665-9cd0f65e514e",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "27858da1-e579-470a-8b7b-6c84a3e4ab1a",
+              "leftValue": "={{ $json.updates }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -272,
+        -672
+      ],
+      "id": "14d508f3-426e-4b61-91d1-a2cd7f6e9d73",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "command": "sudo apt update && sudo apt list --upgradable"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        -736,
+        -672
+      ],
+      "id": "05ce67fb-d8d8-471b-82c2-04974bbcfaba",
+      "name": "Check for Updates",
+      "credentials": {
+        "sshPassword": {
+          "id": "5XhubsoNDppJTaaf",
+          "name": "Nebula"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const stdout = item.json.stdout;  // SSH output is in 'stdout' field\n\nif (!stdout || typeof stdout !== 'string') {\n  return { json: { updates: '', rawOutput: '' } };  // No valid output\n}\n\nconst lines = stdout.split('\\n').filter(line => line.includes('[upgradable from:'));  // Keep update lines\n\nif (lines.length === 0) {\n  return { json: { updates: '', rawOutput: stdout } };  // No updates\n}\n\nconst updateList = lines.map(line => {\n  const parts = line.trim().split(' ');\n  if (parts.length > 3) {\n    const packageName = parts[0].split('/')[0];  // Extract package name\n    const newVersion = parts[1];  // New version\n    const oldVersionMatch = line.match(/\\[upgradable from: (.*?)\\]/);\n    const oldVersion = oldVersionMatch ? oldVersionMatch[1] : 'unknown';  // Old version\n    return `${packageName} (${oldVersion} -> ${newVersion})`;\n  }\n  return '';\n}).filter(pkg => pkg);  // Remove empty entries\n\nconst updates = updateList.join('\\n');\n\nreturn { json: { updates: updates, rawOutput: stdout } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -528,
+        -672
+      ],
+      "id": "095a3e93-23a1-4781-ba57-bd529528d39f",
+      "name": "Phrase Updates"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://10.0.30.2:8123/api/services/python_script/set_long_attribute",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ entity_id: \"sensor.server_updates\", long_value: $json.updates }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -96,
+        -464
+      ],
+      "id": "fbe90e6c-01ed-483d-bbb3-abad98cb3876",
+      "name": "Set HA Entity",
+      "alwaysOutputData": false,
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "bhXUKpayB8vRMSMl",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://10.0.30.2:8123/api/services/notify/mobile_app_sm_s938u",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ title: \"Server Updates Available\", message: $json.updates || \"No updates available\", data: { actions: [ { action: \"APPROVE_UPDATES\", title: \"Approve Install\" }, { action: \"URI\", title: \"View Dashboard\", uri: \"/dashboard-mobile/updates-dashboard\" } ] } }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -320,
+        -464
+      ],
+      "id": "45cd01ff-d69a-4e9c-9fef-ca1684863de0",
+      "name": "Notification Node",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "bhXUKpayB8vRMSMl",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/approve-updates",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1008,
+        -320
+      ],
+      "id": "92bca74c-d94a-47b8-bd7b-ee69295a9511",
+      "name": "Webhook",
+      "webhookId": "7fbe2f43-49b9-4f7f-a2ca-e0c65a3ed76b"
+    },
+    {
+      "parameters": {
+        "command": "sudo apt upgrade -y && sudo apt autoremove"
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [
+        -768,
+        -320
+      ],
+      "id": "ccf3cd78-2861-4b8d-9a54-11a5031b0c65",
+      "name": "Apply updates",
+      "credentials": {
+        "sshPassword": {
+          "id": "5XhubsoNDppJTaaf",
+          "name": "Nebula"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://10.0.30.2:8123/api/services/python_script/set_long_attribute",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ entity_id: \"sensor.server_updates\", long_value: \"\" }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -528,
+        -320
+      ],
+      "id": "93c29aa3-c4d5-49cf-a730-0a0162f7e131",
+      "name": "Clear HA entity",
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "bhXUKpayB8vRMSMl",
+          "name": "Bearer Auth account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Check for Updates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Notification Node",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Set HA Entity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Check for Updates": {
+      "main": [
+        [
+          {
+            "node": "Phrase Updates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Phrase Updates": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notification Node": {
+      "main": [
+        []
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Apply updates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply updates": {
+      "main": [
+        [
+          {
+            "node": "Clear HA entity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "610712a4-8ba5-486c-9a42-6a5866cac901",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8483acc4e027a279288bf77748dc6025f7bf703421e1b81847be5500161b0e73"
+  },
+  "id": "mzoGLTtRqj1GTxNu",
+  "tags": []
+}
