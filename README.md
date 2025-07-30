@@ -124,7 +124,7 @@ Note the webhook URL (e.g., https://your-n8n.com/webhook/approve-updates).
 This handles the notification actions and calls the webhook.
 
 ### 3.1 Add the REST Command
-- Edit configuration.yaml (or use UI: Settings > Devices & Services > Helpers > Create REST Command).
+- Edit configuration.yaml
 - Add:
   ```yaml
   rest_command:
