@@ -11,7 +11,7 @@ Before starting, ensure you have these essential components configured:
 
 1.  **SSH Key Credential:** You must have an SSH Key pair set up. The user must have `NOPASSWD` configured in the `/etc/sudoers` file on the server for `sudo apt update` and `sudo apt upgrade -y` to prevent password prompts.
 2.  **Home Assistant Credential:** An **HTTP Bearer Auth** credential containing your Home Assistant **Long-Lived Access Token**.
-3.  **Network Access:** The n8n server must be able to reach your Home Assistant instance (e.g., `http://10.0.30.2:8123`) and your Raspberry Pi/Ubuntu server.
+3.  **Network Access:** The n8n server must be able to reach your Home Assistant instance (e.g., `http://10.0.30.2:8123`) and your Debian/Ubuntu server.
 
 -----
 
